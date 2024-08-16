@@ -2,6 +2,7 @@
 #include <stack>
 #include <string>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <stdexcept>
 #include "./model/Nodo.h"
@@ -13,6 +14,15 @@ bool isOperator(char c) {
     return (c == '+' || c == '-' || c == '*' || c == '/');
 }
 
+bool isFunction(const string& s) {
+    return (
+        s == "sen" || s == "sin" ||
+        s == "cos" ||
+        s == "tan" ||
+        s == "raiz" || s == "sqrt"
+    );
+}
+
 int precedence(char op) {
     if (op == '+' || op == '-') return 1;
     if (op == '*' || op == '/') return 2;
@@ -20,7 +30,7 @@ int precedence(char op) {
 }
 
 string infixToPostfix(const string& infix) {
-    stack<char> operators;
+    stack<string> operators;
     string postfix = "";
 
     for (size_t i = 0; i < infix.size(); ++i) {
@@ -37,21 +47,40 @@ string infixToPostfix(const string& infix) {
             }
             postfix += ' ';
         } else if (c == '(') {
-            operators.push(c);
+            operators.push(string(1, c));
         } else if (c == ')') {
-            while (!operators.empty() && operators.top() != '(') {
+            while (!operators.empty() && operators.top() != "(") {
                 postfix += operators.top();
                 postfix += ' ';
                 operators.pop();
             }
             operators.pop();
-        } else if (isOperator(c)) {
-            while (!operators.empty() && precedence(operators.top()) >= precedence(c)) {
+
+            if (!operators.empty() && isFunction(operators.top())) {
                 postfix += operators.top();
                 postfix += ' ';
                 operators.pop();
             }
-            operators.push(c);
+        } else if (isOperator(c)) {
+            while (!operators.empty() && precedence(operators.top()[0]) >= precedence(c)) {
+                postfix += operators.top();
+                postfix += ' ';
+                operators.pop();
+            }
+            operators.push(string(1, c));
+        } else if (isalpha(c)) {
+            string func(1, c);
+            while (i + 1 < infix.size() && isalpha(infix[i + 1])) {
+                func += infix[++i];
+            }
+
+            if (isFunction(func)) {
+                operators.push(func);
+            } else {
+                throw invalid_argument("Función desconocida: " + func);
+            }
+        } else {
+            throw invalid_argument("Expresión inválida");
         }
     }
 
@@ -63,7 +92,6 @@ string infixToPostfix(const string& infix) {
 
     return postfix;
 }
-
 
 Nodo* constructExpressionTree(const string& postfix) {
     stack<Nodo*> nodeStack;
@@ -88,26 +116,43 @@ Nodo* constructExpressionTree(const string& postfix) {
             newNode->izquierda = izquierda;
             newNode->derecha = derecha;
             nodeStack.push(newNode);
+        } else if (isalpha(c)) {
+            string func(1, c);
+            while (i + 1 < postfix.size() && isalpha(postfix[i + 1])) {
+                func += postfix[++i];
+            }
+
+            if (isFunction(func)) {
+                Nodo* operand = nodeStack.top(); nodeStack.pop();
+                Nodo* newNode = new Nodo(func);
+                newNode->derecha = operand;
+                nodeStack.push(newNode);
+            }
         }
     }
 
     return nodeStack.top();
 }
 
-int evaluateExpressionTree(Nodo* root) {
+double evaluateExpressionTree(Nodo* root) {
     if (!root) throw invalid_argument("Árbol vacío");
 
     if (!root->izquierda && !root->derecha) {
-        return stoi(root->valor);
+        return stod(root->valor);
     }
 
-    int valorIzquierda = evaluateExpressionTree(root->izquierda);
-    int valorDerecha = evaluateExpressionTree(root->derecha);
+    double valorIzquierda = root->izquierda ? evaluateExpressionTree(root->izquierda) : 0;
+    double valorDerecha = root->derecha ? evaluateExpressionTree(root->derecha) : 0;
 
     if (root->valor == "+") return valorIzquierda + valorDerecha;
     if (root->valor == "-") return valorIzquierda - valorDerecha;
     if (root->valor == "*") return valorIzquierda * valorDerecha;
     if (root->valor == "/") return valorIzquierda / valorDerecha;
+
+    if (root->valor == "sen" || root->valor == "sin") return std::sin(valorDerecha);
+    if (root->valor == "cos") return std::cos(valorDerecha);
+    if (root->valor == "tan") return std::tan(valorDerecha);
+    if (root->valor == "raiz" || root->valor == "sqrt") return std::sqrt(valorDerecha);
 
     throw invalid_argument("Operador desconocido");
 }
@@ -128,8 +173,9 @@ int main() {
 
     try {
         string postfixExpr = infixToPostfix(infixExpr);
+        cout << "Expresión en notación postfija: " << postfixExpr << endl;
         Nodo* arbolExpresion = constructExpressionTree(postfixExpr);
-        int result = evaluateExpressionTree(arbolExpresion);
+        double result = evaluateExpressionTree(arbolExpresion);
         cout << "Resultado: " << result << endl;
 
         Nodo::imprimir(arbolExpresion, TipoRecorrido::IN_ORDEN);

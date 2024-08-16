@@ -84,9 +84,7 @@ void Nodo::establecerIdsYPadres(Nodo* raiz) {
 
 void Nodo::visualizarArbol(Nodo* raiz) {
     Gnuplot gp;
-    std::cout << "Visualizando árbol..." << std::endl;
     Nodo::establecerIdsYPadres(raiz);
-    std::cout << "ID y padre establecidos" << std::endl;
 	std::string script = R"(
 ### tree diagram with gnuplot
 reset session
@@ -97,7 +95,6 @@ $Data <<EOD
     recorrer(raiz, [&script](Nodo* nodo) {
         script += std::to_string(nodo->id) + " " + (nodo->padre != nullptr ? std::to_string(nodo->padre->id) : "NaN") + " " + nodo->valor + " - " + "\n";
     }, TipoRecorrido::IN_ORDEN);
-    std::cout << "Datos cargados" << std::endl;
     script += R"(EOD
 
 # put datablock into strings
